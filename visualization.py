@@ -3,6 +3,11 @@ import numpy as np
 import seaborn as sns
 import os
 from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.font_manager as fm
+
+# 设置中文字体
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial Unicode MS', 'Microsoft YaHei', 'SimHei', 'sans-serif']
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
 
 def ensure_output_dir():
     """确保输出目录存在"""
@@ -191,3 +196,19 @@ def create_comparison_heatmap(old_data, new_data, title, save_path=None):
     except Exception as e:
         print(f"Error creating comparison heatmap: {str(e)}")
         raise 
+
+def save_plot(fig, save_path):
+    """保存图表"""
+    try:
+        # 确保输出目录存在
+        os.makedirs('output', exist_ok=True)
+        # 保存图表
+        fig.savefig(os.path.join('output', save_path), 
+                   bbox_inches='tight', 
+                   dpi=300,
+                   facecolor='white')
+        plt.close(fig)
+        return True
+    except Exception as e:
+        print(f"保存图表时出错: {str(e)}")
+        return False 

@@ -1,4 +1,4 @@
-#!/home/ubuntu/LLMREC/llm_recommend-main/myenv/bin/python3.12
+#!/home/ubuntu/LLMREC/myenv/bin/python3
 """Extract pdf structure in XML format"""
 import logging
 import os.path

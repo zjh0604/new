@@ -81,7 +81,7 @@
                 <div class="sidebar-sticky">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link active" href="#">
+                            <a class="nav-link active" href="/">
                                 <i class="bi bi-house-door"></i>
                                 主页
                             </a>
@@ -135,7 +135,7 @@
 
                 <div id="results" class="result-section">
                     <h2 class="text-center mb-4">分析结果</h2>
-                    
+
                     <div class="row">
                         <div class="col-md-12">
                             <div class="card mb-4">
@@ -201,8 +201,10 @@
                         <div class="col-md-12">
                             <div class="card mb-4">
                                 <div class="card-body">
-                                    <h3>推荐产品</h3>
-                                    <pre id="recommendations"></pre>
+                                    <h3>推荐内容</h3>
+                                    <div id="recommendations" class="recommendations-container">
+                                        <!-- 推荐内容将通过JavaScript动态添加 -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -216,48 +218,89 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         $(document).ready(function() {
-            $('#analyzeForm').on('submit', function(e) {
+            $('#analyzeForm').on('submit', async function(e) {
                 e.preventDefault();
-                
-                const userId = $('#userId').val();
-                
-                // Show loading
-                $('.loading').show();
-                $('#results').hide();
-                
-                // Send request
-                $.ajax({
-                    url: '/analyze',
-                    method: 'POST',
-                    data: {
+
+                const userId = $('#userId').val().trim();
+                if (!userId) {
+                    alert('请输入用户ID');
+                    return;
+                }
+
+                console.log('Submitting analysis for user ID:', userId);
+
+                const loading = $('.loading');
+                const results = $('#results');
+                const recommendations = $('#recommendations');
+
+                loading.show();
+                results.hide();
+
+                try {
+                    const requestData = {
                         user_id: userId
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            // Update content
-                            $('#summary').text(response.summary);
-                            $('#profile').text(response.profile);
-                            $('#recommendations').text(response.recommendations);
-                            
-                            // Update images with timestamp to prevent caching
-                            const timestamp = new Date().getTime();
-                            $('#initialHeatmap').attr('src', `/output/${response.images.initial}?t=${timestamp}`);
-                            $('#updatedHeatmap').attr('src', `/output/${response.images.updated}?t=${timestamp}`);
-                            $('#comparisonHeatmap').attr('src', `/output/${response.images.comparison}?t=${timestamp}`);
-                            
-                            // Show results
-                            $('#results').show();
-                        } else {
-                            alert('分析失败: ' + response.error);
-                        }
-                    },
-                    error: function() {
-                        alert('请求失败，请稍后重试');
-                    },
-                    complete: function() {
-                        $('.loading').hide();
+                    };
+                    console.log('Sending request data:', requestData);
+
+                    const response = await fetch('/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    const data = await response.json();
+                    console.log('Received response:', data);
+
+                    if (!data.success) {
+                        alert(data.error || '分析过程中发生错误');
+                        return;
                     }
-                });
+
+                    // 更新内容
+                    $('#summary').text(data.summary);
+                    $('#profile').text(data.profile);
+                    
+                    // 更新图片（添加时间戳防止缓存）
+                    const timestamp = new Date().getTime();
+                    $('#initialHeatmap').attr('src', `/output/${data.images.initial}?t=${timestamp}`);
+                    $('#updatedHeatmap').attr('src', `/output/${data.images.updated}?t=${timestamp}`);
+                    $('#comparisonHeatmap').attr('src', `/output/${data.images.comparison}?t=${timestamp}`);
+
+                    // 显示推荐内容
+                    recommendations.empty();
+                    if (data.recommendations && Array.isArray(data.recommendations)) {
+                        data.recommendations.forEach(rec => {
+                            const card = $('<div class="card mb-3"></div>');
+                            card.html(`
+                                <div class="row g-0">
+                                    <div class="col-md-4">
+                                        <img src="${rec.image_url}" class="img-fluid rounded-start" alt="${rec.name}">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="card-body">
+                                            <h5 class="card-title">${rec.name}</h5>
+                                            <p class="card-text">${rec.description}</p>
+                                            <p class="card-text"><small class="text-muted">推荐理由：${rec.reason}</small></p>
+                                            <p class="card-text"><small class="text-muted">推荐分数：${rec.score}</small></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                            recommendations.append(card);
+                        });
+                    } else {
+                        recommendations.html('<div class="alert alert-info">暂无推荐内容</div>');
+                    }
+
+                    results.show();
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('分析过程中发生错误，请重试');
+                } finally {
+                    loading.hide();
+                }
             });
 
             // 检查URL中是否有user_id参数

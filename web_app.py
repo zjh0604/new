@@ -20,6 +20,54 @@ if not os.path.exists('output'):
 # 检查是否存在rag向量数据库
 create_chroma_db("rag_shqp", "shqp_rag.txt")
 
+def init_database():
+    """初始化数据库表"""
+    try:
+        conn = sqlite3.connect("user.db")
+        c = conn.cursor()
+        
+        # 创建商品分类表
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS product_category (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pid INTEGER DEFAULT 0,
+                name TEXT,
+                icon TEXT,
+                level INTEGER DEFAULT 1,
+                sort INTEGER DEFAULT 999,
+                is_show INTEGER DEFAULT 1,
+                is_del INTEGER DEFAULT 0,
+                create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                sys_source TEXT DEFAULT 'sohuglobal'
+            )
+        ''')
+        
+        # 检查是否有数据
+        c.execute("SELECT COUNT(*) FROM product_category")
+        if c.fetchone()[0] == 0:
+            # 插入一些初始分类
+            categories = [
+                (0, '饮品', 'https://sohugloba.oss-cn-beijing.aliyuncs.com/2023/09/20/e948541315a74d1f96e0f57ee79e867b.png', 1, 1, 1, 0),
+                (0, '食品', 'https://sohugloba.oss-cn-beijing.aliyuncs.com/2023/09/20/food.png', 1, 2, 1, 0),
+                (0, '电子产品', 'https://sohugloba.oss-cn-beijing.aliyuncs.com/2023/09/20/electronics.png', 1, 3, 1, 0),
+                (0, '服装', 'https://sohugloba.oss-cn-beijing.aliyuncs.com/2023/09/20/clothing.png', 1, 4, 1, 0),
+                (0, '家居', 'https://sohugloba.oss-cn-beijing.aliyuncs.com/2023/09/20/home.png', 1, 5, 1, 0)
+            ]
+            c.executemany("""
+                INSERT INTO product_category (pid, name, icon, level, sort, is_show, is_del)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, categories)
+        
+        conn.commit()
+        conn.close()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+
+# 在应用启动时初始化数据库
+init_database()
+
 @app.route('/')
 def index():
     logger.debug("Accessing index page")
@@ -43,10 +91,20 @@ def user_management():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    user_id = request.form.get('user_id')
-    logger.debug(f"Processing analysis for user_id: {user_id}")
-    
     try:
+        # 获取JSON数据
+        data = request.get_json()
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            logger.error("No user_id provided in request")
+            return jsonify({
+                'success': False,
+                'error': '请提供用户ID'
+            })
+            
+        logger.debug(f"Processing analysis for user_id: {user_id}")
+        
         # 处理用户分析
         results = process_user_analysis(user_id)
         return jsonify({
